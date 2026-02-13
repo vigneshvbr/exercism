@@ -1,0 +1,48 @@
+name: Auto Approve and Merge Sync Iteration PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  auto-approve-and-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Approve and merge if title matches
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title || "";
+
+            if (!title.startsWith("[Sync Iteration]")) {
+              core.info("Title does not match prefix. Skipping.");
+              return;
+            }
+
+            // Approve PR
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              event: "APPROVE",
+              body: "Auto-approved because PR title starts with [Sync Iteration]"
+            });
+
+            core.info("PR approved");
+
+            // Merge PR
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              merge_method: "squash" // change to "merge" or "rebase" if needed
+            });
+
+            core.info("PR merged");
